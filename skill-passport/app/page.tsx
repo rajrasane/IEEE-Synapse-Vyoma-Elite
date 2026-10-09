@@ -22,6 +22,9 @@ const EMPTY_FORM: ProjectFormState = {
   technologies: "",
   projectUrl: "",
   evidenceNotes: "",
+  evidenceType: "GitHub repository",
+  submittedAt: "",
+  visibility: "Recruiters",
 };
 
 const statusClassName = (status: string): string => {
@@ -58,7 +61,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [form, setForm] = useState<ProjectFormState>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof ProjectFormState, string>>>({});
-  const [message, setMessage] = useState<string>("Demo profile is loaded.");
+  const [message, setMessage] = useState<string>("");
 
   const selectedRole = useMemo(
     () => SAMPLE_ROLES.find((role) => role.id === selectedRoleId) ?? SAMPLE_ROLES[0],
@@ -183,25 +186,40 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white no-print">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wider text-indigo-600">SkillPassport</p>
-              <h1 className="text-3xl font-bold text-slate-900">Skills You Can Prove</h1>
-              <p className="mt-1 max-w-3xl text-sm text-slate-600">
-                Evidence-backed skill intelligence for students and recruiters. No skill is marked verified without
-                supporting evidence.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
+    <div className="app-shell min-h-screen bg-slate-50 text-slate-900">
+      <header className="sidebar no-print">
+        <div className="sidebar-brand">
+          <div className="brand-symbol" aria-hidden="true">S<span>+</span></div>
+          <div><p className="brand-name">skill<span>passport</span></p><p className="brand-caption">PROOF, NOT PROMISES</p></div>
+        </div>
+        <div className="sidebar-intro">
+          <p className="eyebrow">YOUR WORKSPACE</p>
+          <h1>Make your skills<br />speak for themselves.</h1>
+        </div>
+        <nav className="sidebar-nav" aria-label="Main navigation">
+          <p className="eyebrow nav-caption">PORTFOLIO</p>
+          {TABS.map((tab, index) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              aria-current={activeTab === tab.key ? "page" : undefined}
+              className={`nav-item ${activeTab === tab.key ? "is-active" : ""}`}
+            >
+              <span className="nav-number">0{index + 1}</span><span>{tab.label === "Dashboard" ? "Overview" : tab.label === "Role Match" ? "Role fit" : tab.label === "Learning Roadmap" ? "Next steps" : tab.label === "Recruiter View" ? "Share passport" : tab.label}</span>
+              {activeTab === tab.key && <span className="nav-arrow" aria-hidden="true">↗</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          <p className="sidebar-note">Your profile is built from projects, with every skill tied back to its evidence.</p>
+          <div className="sidebar-actions">
               <button
                 type="button"
                 onClick={resetToDemo}
-                className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
+                className="quiet-button"
               >
-                Load Demo Profile
+                ↻ &nbsp; Reset demo profile
               </button>
               <button
                 type="button"
@@ -209,34 +227,23 @@ export default function Home() {
                   setProjects([]);
                   setMessage("Projects cleared. Add project evidence to continue.");
                 }}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                className="quiet-button"
               >
-                Clear Projects
+                Clear projects
               </button>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`rounded-md px-3 py-2 text-sm font-medium ${
-                  activeTab === tab.key
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
           </div>
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <section className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 no-print md:grid-cols-3">
+      <main className="workspace mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="workspace-topline no-print">
+          <p><span className="live-dot" /> DEMO PROFILE <span className="topline-divider">/</span> {projects.length} PROJECT{projects.length === 1 ? "" : "S"} IN YOUR PASSPORT</p>
+          <span className="topline-date">EVIDENCE · ROLE FIT · MOMENTUM</span>
+        </div>
+
+        <details className="profile-editor-wrap no-print">
+          <summary>Edit profile &amp; target role <span>Change your name, summary, or the role you’re exploring</span></summary>
+          <section className="profile-editor grid gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3">
           <label className="grid gap-1 text-sm">
             Candidate Name
             <input
@@ -276,7 +283,8 @@ export default function Home() {
               className="rounded-md border border-slate-300 px-3 py-2"
             />
           </label>
-        </section>
+          </section>
+        </details>
 
         {message && (
           <p className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm text-indigo-800 no-print">
@@ -285,30 +293,34 @@ export default function Home() {
         )}
 
         {activeTab === "dashboard" && (
-          <section className="grid gap-4">
+          <section className="dashboard-view grid gap-4">
+            <div className="dashboard-heading">
+              <div><p className="eyebrow">PROFILE OVERVIEW</p><h2>Your skills, with receipts.</h2><p>Evidence is connected to every signal. Review your profile, then see how it lines up with your next role.</p></div>
+              <button type="button" className="primary-button" onClick={() => setActiveTab("evidence")}>＋ Add project evidence <span>↗</span></button>
+            </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               {[
                 { title: "Evidence-backed skills", value: evidenceFoundCount.toString() },
                 { title: "Skills requiring review", value: needsReviewCount.toString() },
                 { title: "Role readiness", value: `${roleMatchSummary.readinessScore}%` },
                 { title: "Projects analyzed", value: projects.length.toString() },
-              ].map((item) => (
-                <article key={item.title} className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm text-slate-600">{item.title}</p>
-                  <p className="mt-2 text-3xl font-bold text-slate-900">{item.value}</p>
+              ].map((item, index) => (
+                <article key={item.title} className={`stat-card stat-${index} rounded-xl border border-slate-200 bg-white p-4`}>
+                  <p className="stat-label">{item.title}</p>
+                  <p className="stat-value">{item.value}</p>
+                  <span className="stat-index">0{index + 1}</span>
                 </article>
               ))}
             </div>
 
-            <article className="rounded-xl border border-slate-200 bg-white p-5">
-              <h2 className="text-lg font-semibold">Profile Summary</h2>
+            <article className="profile-summary rounded-xl border border-slate-200 bg-white p-5">
+              <div className="summary-title"><div><p className="eyebrow">YOUR CURRENT DIRECTION</p><h2>{candidateHeadline || "Your professional profile"}</h2></div><div className="readiness-ring"><span>{roleMatchSummary.readinessScore}%</span><small>READY</small></div></div>
               <p className="mt-2 text-slate-700">{candidateSummary}</p>
-              <p className="mt-3 text-sm text-slate-500">Target role: {selectedRole.title}</p>
-              <p className="mt-2 text-sm text-slate-500">{roleMatchSummary.formula}</p>
+              <div className="summary-footer"><span>↗ &nbsp; Working toward <strong>{selectedRole.title}</strong></span><span>{roleMatchSummary.formula}</span></div>
             </article>
 
-            <article className="rounded-xl border border-slate-200 bg-white p-5">
-              <h2 className="text-lg font-semibold">Recent Evidence Items</h2>
+            <article className="evidence-panel rounded-xl border border-slate-200 bg-white p-5">
+              <div className="panel-heading"><div><p className="eyebrow">SIGNALS FROM YOUR WORK</p><h2>Evidence snapshot</h2></div><button type="button" className="text-link" onClick={() => setActiveTab("evidence")}>View all evidence ↗</button></div>
               <div className="mt-4 grid gap-3">
                 {projectAnalyses.flatMap(({ evidence }) => evidence).slice(0, 5).map((item, index) => (
                   <div key={`${item.skill}-${index}`} className="rounded-lg border border-slate-200 p-3">

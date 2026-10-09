@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SkillPassport — Skills You Can Prove",
-  description: "Evidence-backed skill intelligence for students and recruiters.",
+  title: "SkillPassport — Proof, not promises",
+  description: "A living portfolio that connects your skills to the work that proves them.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

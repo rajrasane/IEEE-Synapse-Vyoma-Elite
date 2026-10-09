@@ -10,10 +10,32 @@ export type SkillCategory =
   | "Data"
   | "Backend";
 
+export type EvidenceType =
+  | "GitHub repository"
+  | "Deployed project"
+  | "Project report"
+  | "Internship"
+  | "Certificate"
+  | "Technical assessment"
+  | "Hackathon"
+  | "Mentor verification"
+  | "Demo video"
+  | "Technical article";
+
+export type VerificationStatus =
+  | "Self-declared"
+  | "AI-supported"
+  | "Evidence-backed"
+  | "Mentor-verified"
+  | "Assessment-verified";
+
 export interface CandidateProfile {
   name: string;
   headline: string;
   summary: string;
+  education?: string;
+  experienceLevel?: string;
+  githubUrl?: string;
 }
 
 export interface ProjectEvidenceInput {
@@ -23,6 +45,12 @@ export interface ProjectEvidenceInput {
   technologies: string[];
   projectUrl?: string;
   evidenceNotes?: string;
+  evidenceType?: EvidenceType;
+  submittedAt?: string;
+  visibility?: "Recruiters" | "Private";
+  reviewStatus?: "pending" | "reviewed";
+  acceptedSkills?: string[];
+  verificationStatus?: VerificationStatus;
   sourceLabel: "Demo sample" | "User provided";
 }
 
@@ -45,6 +73,9 @@ export interface SkillEvidence {
   explanation: string;
   reviewNotes: string;
   triggers: string[];
+  confidenceScore: number;
+  verificationStatus: VerificationStatus;
+  submittedAt?: string;
 }
 
 export interface SkillProfile {
@@ -55,6 +86,9 @@ export interface SkillProfile {
   explanation: string;
   reviewNotes: string;
   evidenceItems: SkillEvidence[];
+  confidenceScore: number;
+  lastUsed: string;
+  verificationStatus: VerificationStatus;
 }
 
 export interface RoleRequirement {
@@ -104,4 +138,7 @@ export interface ProjectFormState {
   technologies: string;
   projectUrl: string;
   evidenceNotes: string;
+  evidenceType: EvidenceType;
+  submittedAt: string;
+  visibility: "Recruiters" | "Private";
 }

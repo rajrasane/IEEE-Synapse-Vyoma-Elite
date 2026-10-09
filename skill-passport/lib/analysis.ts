@@ -38,9 +38,11 @@ const detectSkillForRule = (
   const combined = `${project.description} ${project.technologies.join(" ")} ${project.evidenceNotes ?? ""}`;
   const tokens = splitTokens(combined);
 
-  const triggerMatches = rule.keywords.filter((keyword) =>
-    tokens.some((token) => token.includes(keyword.toLowerCase())),
-  );
+  const normalizedText = combined.toLowerCase();
+  const triggerMatches = rule.keywords.filter((keyword) => {
+    const normalizedKeyword = keyword.toLowerCase();
+    return normalizedText.includes(normalizedKeyword) || tokens.some((token) => token === normalizedKeyword);
+  });
 
   if (triggerMatches.length === 0) {
     return null;
@@ -57,14 +59,17 @@ const detectSkillForRule = (
     supportingProject: project.projectName,
     reference:
       project.projectUrl && project.projectUrl.trim().length > 0
-        ? `${project.projectUrl} (user/demo supplied link; not auto-verified)`
+        ? `${project.projectUrl} (submitted link; not fetched or verified)`
         : "Project description and evidence notes provided in-app",
-    explanation: `Detected keywords for ${rule.skill}: ${triggerMatches.join(", ")} from provided project text.`,
+    explanation: `The demo analyzer found ${triggerMatches.join(", ")} in the submitted project details. This is a suggested signal, not independent verification.`,
     reviewNotes:
       evidenceStatus === "Evidence found"
         ? "Evidence indicates usage in supplied materials, but does not prove expert mastery."
         : "Signal is limited or ambiguous; reviewer should inspect code artifacts or concrete output.",
     triggers: triggerMatches,
+    confidenceScore: Math.min(90, 52 + triggerMatches.length * 11),
+    verificationStatus: project.verificationStatus ?? "Self-declared",
+    submittedAt: project.submittedAt,
   };
 };
 
@@ -88,6 +93,9 @@ const emptySkillProfile = (requirement: RoleRequirement): SkillProfile => ({
   explanation: "No matching skill signals were detected in supplied project evidence.",
   reviewNotes: "Provide project artifacts or excerpts that clearly show this skill in use.",
   evidenceItems: [],
+  confidenceScore: 0,
+  lastUsed: "No evidence yet",
+  verificationStatus: "Self-declared",
 });
 
 export const buildSkillProfiles = (
@@ -97,10 +105,13 @@ export const buildSkillProfiles = (
   const bySkill = new Map<string, SkillEvidence[]>();
 
   projects.forEach((project) => {
-    analyzeProjectEvidence(project).forEach((evidence) => {
-      const existing = bySkill.get(evidence.skill) ?? [];
-      bySkill.set(evidence.skill, [...existing, evidence]);
-    });
+    if (project.reviewStatus !== "reviewed") return;
+    analyzeProjectEvidence(project)
+      .filter((evidence) => (project.acceptedSkills ?? []).includes(evidence.skill))
+      .forEach((evidence) => {
+        const existing = bySkill.get(evidence.skill) ?? [];
+        bySkill.set(evidence.skill, [...existing, evidence]);
+      });
   });
 
   requirements.forEach((requirement) => {
@@ -122,6 +133,9 @@ export const buildSkillProfiles = (
             explanation: "No evidence is currently linked to this skill.",
             reviewNotes: "Add concrete project outputs to support this claim.",
             evidenceItems: [],
+            confidenceScore: 0,
+            lastUsed: "No evidence yet",
+            verificationStatus: "Self-declared",
           };
     }
 
@@ -144,6 +158,11 @@ export const buildSkillProfiles = (
           ? "Evidence supports usage, but mastery still requires deeper artifact review."
           : "Collect clearer code snippets, commits, or deliverables before claiming confidence.",
       evidenceItems,
+      confidenceScore: Math.max(...evidenceItems.map((item) => item.confidenceScore)),
+      lastUsed: evidenceItems.map((item) => item.submittedAt ?? "").filter(Boolean).sort().at(-1) ?? "Date not supplied",
+      verificationStatus: evidenceItems.some((item) => item.verificationStatus === "Evidence-backed")
+        ? "Evidence-backed"
+        : evidenceItems[0].verificationStatus,
     };
   });
 };
@@ -177,7 +196,12 @@ export const matchRoleRequirements = (
   const partialCount = items.filter((item) => item.matchStatus === "Partial or uncertain match").length;
   const gapCount = items.filter((item) => item.matchStatus === "Gap").length;
 
-  const weightedScore = (supportedCount + partialCount * 0.5) / Math.max(items.length, 1);
+  const totalWeight = requirements.reduce((total, item) => total + (item.priority === "High" ? 2 : 1), 0);
+  const achievedWeight = items.reduce((total, item, index) => {
+    const weight = requirements[index]?.priority === "High" ? 2 : 1;
+    return total + (item.matchStatus === "Supported match" ? weight : item.matchStatus === "Partial or uncertain match" ? weight * 0.5 : 0);
+  }, 0);
+  const weightedScore = achievedWeight / Math.max(totalWeight, 1);
   const readinessScore = Math.round(weightedScore * 100);
 
   return {
@@ -187,7 +211,7 @@ export const matchRoleRequirements = (
     gapCount,
     readinessScore,
     formula:
-      "Readiness = ((supported matches × 1) + (partial matches × 0.5)) / total requirements × 100",
+      "Role match = weighted supported requirements + half-weight partial requirements, divided by total role weight. High priority skills count double.",
   };
 };
 
