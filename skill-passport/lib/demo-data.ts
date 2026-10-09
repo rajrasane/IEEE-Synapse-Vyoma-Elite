@@ -7,7 +7,6 @@ export const DEMO_CANDIDATE: CandidateProfile = {
     "Builds student products with React and TypeScript, ships responsive interfaces, and documents implementation decisions in project notes.",
   education: "B.Tech · Computer Science",
   experienceLevel: "Student · Early career",
-  githubUrl: "https://github.com/aaravkulkarni",
 };
 
 export const SKILL_RULES: SkillRule[] = [
@@ -77,7 +76,6 @@ export const DEMO_PROJECTS: ProjectEvidenceInput[] = [
     description:
       "Sample demo project: Built a React + TypeScript dashboard for browsing and filtering campus events with reusable components and stateful filters.",
     technologies: ["React", "TypeScript", "Tailwind CSS"],
-    projectUrl: "https://demo.example.com/campus-events",
     evidenceNotes:
       "Sample demo evidence: implemented responsive card grid, custom hooks for filtering, and typed event interfaces.",
     evidenceType: "Deployed project",
@@ -94,7 +92,6 @@ export const DEMO_PROJECTS: ProjectEvidenceInput[] = [
     description:
       "Sample demo project: Created a mobile-first study planner that fetches sprint templates from an API and tracks completion progress.",
     technologies: ["Next.js", "Tailwind CSS", "REST API"],
-    projectUrl: "https://demo.example.com/study-sprint",
     evidenceNotes:
       "Sample demo evidence: used fetch to call endpoint, added loading and error states, and documented branch-based workflow in project notes.",
     evidenceType: "GitHub repository",

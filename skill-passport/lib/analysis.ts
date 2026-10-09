@@ -41,7 +41,9 @@ const detectSkillForRule = (
   const normalizedText = combined.toLowerCase();
   const triggerMatches = rule.keywords.filter((keyword) => {
     const normalizedKeyword = keyword.toLowerCase();
-    return normalizedText.includes(normalizedKeyword) || tokens.some((token) => token === normalizedKeyword);
+    if (/[\s/]/.test(normalizedKeyword)) return normalizedText.includes(normalizedKeyword);
+    if (normalizedKeyword === "java") return tokens.includes("java");
+    return tokens.some((token) => token === normalizedKeyword || token.startsWith(normalizedKeyword));
   });
 
   if (triggerMatches.length === 0) {
@@ -55,8 +57,9 @@ const detectSkillForRule = (
     category: rule.category,
     evidenceStatus,
     proficiencyEstimate: proficiencyLabel(triggerMatches.length),
-    evidenceSource: `${project.sourceLabel} project input`,
+    evidenceSource: `${project.evidenceType ?? "Project evidence"} · ${project.sourceLabel}`,
     supportingProject: project.projectName,
+    supportingProjectId: project.id,
     reference:
       project.projectUrl && project.projectUrl.trim().length > 0
         ? `${project.projectUrl} (submitted link; not fetched or verified)`

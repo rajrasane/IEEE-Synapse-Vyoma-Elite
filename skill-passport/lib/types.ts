@@ -49,6 +49,7 @@ export interface ProjectEvidenceInput {
   submittedAt?: string;
   visibility?: "Recruiters" | "Private";
   reviewStatus?: "pending" | "reviewed";
+  suggestedSkills?: string[];
   acceptedSkills?: string[];
   verificationStatus?: VerificationStatus;
   sourceLabel: "Demo sample" | "User provided";
@@ -69,6 +70,7 @@ export interface SkillEvidence {
   proficiencyEstimate: string;
   evidenceSource: string;
   supportingProject: string;
+  supportingProjectId: string;
   reference: string;
   explanation: string;
   reviewNotes: string;
