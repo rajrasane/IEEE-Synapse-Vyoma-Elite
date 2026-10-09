@@ -40,6 +40,39 @@ const parseTechnologies = (text: string): string[] =>
 const toId = (): string =>
   typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `id-${Date.now()}`;
 
+const MATCH_CIRCUMFERENCE = 263.9;
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+const formatEvidenceDate = (value?: string): string => {
+  if (!value) return "Date not supplied";
+  const [year, month] = value.split("-");
+  const label = MONTH_LABELS[Number(month) - 1];
+  return year && label ? `${label} ${year}` : value;
+};
+
+function RoleMatchMedallion({ score }: { score: number }) {
+  const safeScore = Math.max(0, Math.min(100, score));
+
+  return (
+    <div className="role-match-medallion" role="img" aria-label={`${safeScore}% role match`}>
+      <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+        <circle className="role-match-track" cx="50" cy="50" r="42" />
+        <circle
+          className="role-match-progress"
+          cx="50"
+          cy="50"
+          r="42"
+          style={{
+            strokeDasharray: MATCH_CIRCUMFERENCE,
+            strokeDashoffset: MATCH_CIRCUMFERENCE * (1 - safeScore / 100),
+          }}
+        />
+      </svg>
+      <span className="role-match-value"><strong>{safeScore}<sup>%</sup></strong><small>role match</small></span>
+    </div>
+  );
+}
+
 export default function Home() {
   const [candidateName, setCandidateName] = useState(DEMO_CANDIDATE.name);
   const [candidateHeadline, setCandidateHeadline] = useState(DEMO_CANDIDATE.headline);
@@ -88,9 +121,20 @@ export default function Home() {
     .map((item) => ({ project, item })));
   const priorityGaps = roleMatchSummary.items.filter((item) => item.matchStatus !== "Supported match").slice(0, 3);
   const selectedSkillProfile = selectedSkill ? skillProfiles.find((item) => item.skill === selectedSkill) : undefined;
-  const recruiterProjects = projects.filter((project) => project.visibility !== "Private");
-  const recruiterSkillProfiles = useMemo(() => buildSkillProfiles(recruiterProjects, selectedRole.requirements), [recruiterProjects, selectedRole.requirements]);
-  const recruiterRoleMatchSummary = useMemo(() => matchRoleRequirements(selectedRole.requirements, recruiterSkillProfiles), [selectedRole.requirements, recruiterSkillProfiles]);
+  const recruiterProjects = useMemo(
+    () => projects.filter((project) => project.visibility !== "Private" && project.reviewStatus === "reviewed"),
+    [projects],
+  );
+  const recruiterSkillProfiles = useMemo(
+    () => buildSkillProfiles(recruiterProjects, selectedRole.requirements),
+    [recruiterProjects, selectedRole.requirements],
+  );
+  const recruiterRoleMatchSummary = useMemo(
+    () => matchRoleRequirements(selectedRole.requirements, recruiterSkillProfiles),
+    [selectedRole.requirements, recruiterSkillProfiles],
+  );
+  const passportSkillProfiles = recruiterSkillProfiles.filter((skill) => skill.evidenceItems.length > 0);
+  const passportRoleNeeds = recruiterRoleMatchSummary.items.filter((item) => item.matchStatus !== "Supported match");
 
   const resetToDemo = (): void => {
     setCandidateName(DEMO_CANDIDATE.name);
@@ -195,8 +239,8 @@ export default function Home() {
       `Role match: ${recruiterRoleMatchSummary.readinessScore}%`,
       recruiterRoleMatchSummary.formula,
       "",
-      "AI-supported skills (demo text analysis; not independently verified):",
-      ...recruiterSkillProfiles
+      "Skills supported by candidate-reviewed evidence (demo text analysis; not independently verified):",
+      ...passportSkillProfiles
         .map((skill) => `- ${skill.skill} (${skill.confidenceScore}% signal): ${skill.explanation}`),
       "",
       "Skills Needing More Evidence:",
@@ -279,51 +323,38 @@ export default function Home() {
         </div>
 
         <details className="profile-editor-wrap no-print" open={profileEditorOpen} onToggle={(event) => setProfileEditorOpen(event.currentTarget.open)}>
-          <summary>Set up your candidate passport <span>Name, education, experience, skills, and target role</span></summary>
-          <section className="profile-editor grid gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3">
-          <label className="grid gap-1 text-sm">
-            Candidate Name
-            <input
-              value={candidateName}
-              onChange={(event) => setCandidateName(event.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            />
-          </label>
-          <label className="grid gap-1 text-sm">
-            Candidate Headline
-            <input
-              value={candidateHeadline}
-              onChange={(event) => setCandidateHeadline(event.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            />
-          </label>
-          <label className="grid gap-1 text-sm">
-            Target Role
-            <select
-              value={selectedRole.id}
-              onChange={(event) => setSelectedRoleId(event.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            >
-              {ALL_ROLES.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="md:col-span-3 grid gap-1 text-sm">
-            Professional Summary
-            <textarea
-              value={candidateSummary}
-              onChange={(event) => setCandidateSummary(event.target.value)}
-              rows={3}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            />
-          </label>
-          <label className="grid gap-1 text-sm">Education<input value={candidateEducation} onChange={(event) => setCandidateEducation(event.target.value)} placeholder="Degree · institution" /></label>
-          <label className="grid gap-1 text-sm">Experience level<select value={experienceLevel} onChange={(event) => setExperienceLevel(event.target.value)}><option>Student · Early career</option><option>Entry level</option><option>1–3 years</option><option>3+ years</option></select></label>
-          <label className="grid gap-1 text-sm">GitHub / portfolio URL<input type="url" value={githubUrl} onChange={(event) => setGithubUrl(event.target.value)} placeholder="https://github.com/you" /></label>
-          <label className="md:col-span-3 grid gap-1 text-sm">Main skills you want to claim<input value={mainSkillsText} onChange={(event) => setMainSkillsText(event.target.value)} placeholder="React, SQL, communication" /><span className="text-xs text-slate-500">These remain self-declared until you connect evidence.</span></label>
+          <summary><span className="setup-step-number">01</span><span className="setup-summary-copy"><strong>Start your candidate passport</strong><span>Set the story, role, and initial claims your evidence will support</span></span></summary>
+          <section className="profile-editor">
+            <div className="profile-editor-intro">
+              <p className="eyebrow">CANDIDATE SETUP</p>
+              <h2>Give your evidence a direction.</h2>
+              <p>Start with the context a recruiter needs. Your skills become stronger only after you connect them to concrete work.</p>
+            </div>
+            <div className="profile-form-grid">
+              <label className="profile-field">
+                Candidate name
+                <input value={candidateName} onChange={(event) => setCandidateName(event.target.value)} />
+              </label>
+              <label className="profile-field">
+                Professional headline
+                <input value={candidateHeadline} onChange={(event) => setCandidateHeadline(event.target.value)} />
+              </label>
+              <label className="profile-field">
+                Target role
+                <select value={selectedRole.id} onChange={(event) => setSelectedRoleId(event.target.value)}>
+                  {ALL_ROLES.map((role) => <option key={role.id} value={role.id}>{role.title}</option>)}
+                </select>
+              </label>
+              <label className="profile-field profile-field-wide">
+                Professional summary
+                <textarea value={candidateSummary} onChange={(event) => setCandidateSummary(event.target.value)} rows={3} />
+              </label>
+              <label className="profile-field">Education<input value={candidateEducation} onChange={(event) => setCandidateEducation(event.target.value)} placeholder="Degree · institution" /></label>
+              <label className="profile-field">Experience level<select value={experienceLevel} onChange={(event) => setExperienceLevel(event.target.value)}><option>Student · Early career</option><option>Entry level</option><option>1–3 years</option><option>3+ years</option></select></label>
+              <label className="profile-field">GitHub / portfolio URL<input type="url" value={githubUrl} onChange={(event) => setGithubUrl(event.target.value)} placeholder="https://github.com/you" /></label>
+              <label className="profile-field profile-field-wide">Main skills you want to claim<input value={mainSkillsText} onChange={(event) => setMainSkillsText(event.target.value)} placeholder="React, SQL, communication" /></label>
+            </div>
+            <p className="profile-claim-note"><span aria-hidden="true">✦</span><span><strong>Claims begin as self-declared.</strong> Add a project, review the suggested skills, and choose which evidence belongs on your passport.</span></p>
           </section>
         </details>
 
@@ -348,7 +379,13 @@ export default function Home() {
               <p className="candidate-summary">{candidateSummary || "Add a short summary about the work you do and the skills you want to demonstrate."}</p>
               <div className="candidate-controls">
                 <label>Target role<select value={selectedRole.id} onChange={(event) => setSelectedRoleId(event.target.value)}>{ALL_ROLES.map((role) => <option key={role.id} value={role.id}>{role.title}</option>)}</select></label>
-                <div className="candidate-match"><span className="readiness-ring"><span>{roleMatchSummary.readinessScore}%</span><small>ROLE MATCH</small></span><span><strong>{selectedRole.title}</strong><small>{roleMatchSummary.supportedCount} strong · {roleMatchSummary.partialCount} partial · {roleMatchSummary.gapCount} gaps</small></span></div>
+                <div className="candidate-match">
+                  <RoleMatchMedallion score={roleMatchSummary.readinessScore} />
+                  <div className="candidate-match-copy">
+                    <strong>{selectedRole.title}</strong>
+                    <small>{roleMatchSummary.supportedCount} supported · {roleMatchSummary.partialCount} partial · {roleMatchSummary.gapCount} gaps</small>
+                  </div>
+                </div>
               </div>
               <div className="cover-actions"><button type="button" className="text-link" onClick={() => setActiveTab("passport")}>Preview shareable passport ↗</button><button type="button" className="text-link" onClick={() => { setProfileEditorOpen(true); document.querySelector(".profile-editor-wrap")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>Edit candidate profile ↗</button>{githubUrl && /^https?:\/\//i.test(githubUrl) && <a href={githubUrl} target="_blank" rel="noreferrer" className="text-link">Open portfolio ↗</a>}</div>
             </article>
@@ -427,7 +464,7 @@ export default function Home() {
         {activeTab === "role" && (
           <section className="role-fit-view">
             <div className="dashboard-heading"><div><p className="eyebrow">ROLE FIT / DETERMINISTIC MATCH</p><h2>See where your proof fits.</h2><p>Compare accepted evidence with the requirements of a role. High-priority skills count twice; a partial signal receives half credit.</p></div><select className="role-selector" value={selectedRole.id} onChange={(event) => setSelectedRoleId(event.target.value)}>{ALL_ROLES.map((role) => <option key={role.id} value={role.id}>{role.title}</option>)}</select></div>
-            <article className="role-score-card rounded-xl border border-slate-200 bg-white p-5"><div><p className="eyebrow">CURRENT TARGET</p><h3>{selectedRole.title}</h3><p>{selectedRole.summary}</p><small>{roleMatchSummary.formula}</small></div><div className="role-score"><strong>{roleMatchSummary.readinessScore}%</strong><span>evidence match</span></div></article>
+            <article className="role-score-card rounded-xl border border-slate-200 bg-white p-5"><div><p className="eyebrow">CURRENT TARGET</p><h3>{selectedRole.title}</h3><p>{selectedRole.summary}</p><small>{roleMatchSummary.formula}</small></div><RoleMatchMedallion score={roleMatchSummary.readinessScore} /></article>
             <div className="match-counts"><span className="match-count strong">{roleMatchSummary.supportedCount} strong matches</span><span className="match-count partial">{roleMatchSummary.partialCount} partial matches</span><span className="match-count gap">{roleMatchSummary.gapCount} gaps</span></div>
             <div className="role-requirements">{roleMatchSummary.items.map((item) => { const requirement = selectedRole.requirements.find((entry) => entry.skill === item.requiredSkill); const profile = skillProfiles.find((entry) => entry.skill === item.requiredSkill); return <article className="requirement-card rounded-xl border border-slate-200 bg-white p-5" key={item.requiredSkill}><div className="requirement-heading"><div><span className="eyebrow">{requirement?.priority ?? "MEDIUM"} PRIORITY</span><h3>{item.requiredSkill}</h3></div><span className={`requirement-status ${item.matchStatus === "Supported match" ? "supported" : item.matchStatus === "Gap" ? "gap" : "partial"}`}>{item.matchStatus === "Supported match" ? "Strong match" : item.matchStatus === "Gap" ? "Gap" : "Needs more evidence"}</span></div><p>{item.explanation}</p>{profile?.evidenceItems.length ? <button type="button" className="text-link" onClick={() => { setSelectedSkill(item.requiredSkill); setActiveTab("skills"); }}>View {profile.evidenceItems.length} supporting item{profile.evidenceItems.length === 1 ? "" : "s"} ↗</button> : <div className="next-evidence"><strong>Evidence that would help</strong><span>{item.nextEvidence}</span></div>}</article>; })}</div>
             <article className="roadmap-panel rounded-xl border border-slate-200 bg-white p-5"><div className="panel-heading"><div><p className="eyebrow">PERSONALISED FROM YOUR ROLE GAPS</p><h2>Your next evidence plan</h2></div></div>{roadmap.length ? <div className="roadmap-list">{roadmap.slice(0, 3).map((task) => <div className="roadmap-item" key={task.skill}><span className="roadmap-number">0{task.priorityOrder}</span><div><strong>{task.skill} · {task.priorityLabel} priority</strong><p>{task.practiceTask}</p><small>Save as evidence: {task.expectedEvidence}</small></div></div>)}</div> : <p className="empty-proof">Every current role requirement has supporting evidence. Keep your passport current with recent work.</p>}<button type="button" className="text-link roadmap-cta" onClick={() => setActiveTab("evidence")}>Add evidence for a gap ↗</button></article>
@@ -435,100 +472,100 @@ export default function Home() {
         )}
 
         {activeTab === "passport" && (
-          <section id="passport-view" className="grid gap-4">
-            <article className="rounded-xl border border-slate-200 bg-white p-6 print-card">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide text-indigo-600">SKILLPASSPORT · CANDIDATE PROOF</p>
-                  <h2 className="text-2xl font-bold text-slate-900">{candidateName}</h2>
-                  <p className="text-sm text-slate-600">{candidateHeadline}</p>
-                </div>
-                <div className="text-right text-sm text-slate-600">
-                  <p className="font-medium text-slate-800">Target Role: {selectedRole.title}</p>
-                  <p>Role match: {recruiterRoleMatchSummary.readinessScore}%</p>
-                </div>
+          <section id="passport-view" className="passport-share">
+            <div className="passport-toolbar no-print">
+              <div>
+                <p className="eyebrow">RECRUITER VIEW / CANDIDATE CONTROLLED</p>
+                <h2>Share the evidence, not just a claim.</h2>
+                <p>Only evidence the candidate reviewed and chose to share appears in this record.</p>
               </div>
+              <p className="passport-toolbar-count"><strong>{recruiterProjects.length}</strong><span>reviewed source{recruiterProjects.length === 1 ? "" : "s"}<br />included here</span></p>
+            </div>
 
-              <p className="mt-4 text-sm text-slate-700">{candidateSummary}</p>
-              <p className="mt-2 text-sm text-slate-600">{candidateEducation} · {experienceLevel}</p>
-              <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">AI-supported means a deterministic demo analyzer found a text signal in candidate-submitted material. Links are not fetched and this is not official, mentor, or assessment verification.</p>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <article className="passport-document print-card">
+              <header className="passport-document-header">
                 <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-800">Projects</h3>
-                  <ul className="mt-2 grid gap-2 text-sm text-slate-700">
-                    {recruiterProjects.map((project) => (
-                      <li key={project.id} className="rounded-lg border border-slate-200 p-2">
-                        <p className="font-medium">{project.projectName}</p>
-                        <p className="text-xs text-slate-500">{project.evidenceType} · {project.submittedAt ?? "Date not supplied"} · {project.reviewStatus === "reviewed" ? "Candidate reviewed" : "Awaiting review"}</p>
-                      </li>
-                    ))}
-                    {!recruiterProjects.length && <li className="rounded-lg border border-dashed border-slate-300 p-3 text-xs">No evidence is currently visible to recruiters.</li>}
-                  </ul>
+                  <p className="passport-wordmark">skill<span>passport</span></p>
+                  <p className="passport-document-type">Evidence passport · candidate review snapshot</p>
                 </div>
+                <p className="passport-record-label"><span>SHAREABLE RECORD</span><strong>Candidate-controlled</strong></p>
+              </header>
 
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-800">AI-supported skills</h3>
-                  <ul className="mt-2 grid gap-2 text-sm text-slate-700">
-                    {recruiterSkillProfiles.map((skill) => (
-                        <li key={skill.skill} className="rounded-lg border border-emerald-200 bg-emerald-50 p-2">
-                          <p className="font-medium">{skill.skill} · signal {skill.confidenceScore}%</p>
-                          <p className="text-xs">Supported by {skill.evidenceItems.map((item) => item.supportingProject).join(", ")}</p>
-                        </li>
-                      ))}
-                    {!recruiterSkillProfiles.length && <li className="rounded-lg border border-dashed border-slate-300 p-3 text-xs">No recruiter-visible skills have been connected to evidence.</li>}
-                  </ul>
+              <section className="passport-identity">
+                <div className="passport-identity-copy">
+                  <p className="passport-section-kicker">CANDIDATE</p>
+                  <h2>{candidateName || "Your name"}</h2>
+                  <p className="passport-headline">{candidateHeadline || "Add a professional headline"}</p>
+                  <p className="passport-bio">{candidateSummary || "Add a concise account of the work you do and the skills you want to demonstrate."}</p>
+                  <dl className="passport-facts">
+                    <div><dt>Education</dt><dd>{candidateEducation || "Not supplied"}</dd></div>
+                    <div><dt>Experience</dt><dd>{experienceLevel || "Not supplied"}</dd></div>
+                    {githubUrl && /^https?:\/\//i.test(githubUrl) && <div><dt>Portfolio</dt><dd><a href={githubUrl} target="_blank" rel="noreferrer">Open submitted link ↗</a></dd></div>}
+                  </dl>
                 </div>
-              </div>
+                <aside className="passport-role-panel">
+                  <p>ROLE IN VIEW</p>
+                  <h3>{selectedRole.title}</h3>
+                  <div className="passport-role-score"><strong>{recruiterRoleMatchSummary.readinessScore}<small>%</small></strong><span>evidence match</span></div>
+                  <p>{recruiterRoleMatchSummary.supportedCount} supported requirement{recruiterRoleMatchSummary.supportedCount === 1 ? "" : "s"} · {recruiterRoleMatchSummary.partialCount} partial · {recruiterRoleMatchSummary.gapCount} gap{recruiterRoleMatchSummary.gapCount === 1 ? "" : "s"}</p>
+                </aside>
+              </section>
 
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-800">Role skills without strong evidence</h3>
-                  <ul className="mt-2 grid gap-2 text-sm text-slate-700">
-                    {recruiterRoleMatchSummary.items
-                      .filter((item) => item.matchStatus !== "Supported match")
-                      .map((skill) => (
-                        <li key={skill.requiredSkill} className="rounded-lg border border-amber-200 bg-amber-50 p-2">
-                          <p className="font-medium">
-                            {skill.requiredSkill} — {skill.matchStatus}
-                          </p>
-                          <p className="text-xs">Next evidence: {skill.nextEvidence}</p>
-                        </li>
-                      ))}
-                  </ul>
+              <section className="passport-ledger-section">
+                <div className="passport-section-heading">
+                  <div><p className="passport-section-kicker">SKILL EVIDENCE LEDGER</p><h3>Claims with their supporting work</h3></div>
+                  <p>{passportSkillProfiles.length} skill{passportSkillProfiles.length === 1 ? "" : "s"} connected to reviewed evidence</p>
                 </div>
+                <div className="passport-ledger" role="list" aria-label="Skill evidence ledger">
+                  <div className="passport-ledger-head" aria-hidden="true"><span>Skill</span><span>Supporting evidence</span><span>Signal</span></div>
+                  {passportSkillProfiles.map((skill) => (
+                    <div className="passport-ledger-row" role="listitem" key={skill.skill}>
+                      <div className="passport-skill-cell"><strong>{skill.skill}</strong><span>{skill.category} · {skill.proficiencyEstimate}</span></div>
+                      <div className="passport-evidence-cell"><strong>{skill.evidenceItems.map((item) => item.supportingProject).join(" · ")}</strong><span>{skill.evidenceItems.length} evidence item{skill.evidenceItems.length === 1 ? "" : "s"} · latest {formatEvidenceDate(skill.lastUsed)}</span></div>
+                      <div className="passport-signal-cell"><span>{skill.verificationStatus}</span><small>{skill.confidenceScore}% demo signal</small></div>
+                    </div>
+                  ))}
+                  {!passportSkillProfiles.length && <div className="passport-empty-ledger">No recruiter-visible skill evidence has been reviewed yet. Add an artifact, review the suggested skills, then choose its visibility.</div>}
+                </div>
+                <p className="passport-method-note">“AI-supported” means the local demo analyzer found matching text signals in candidate-submitted material. It does not mean official, mentor, or assessment verification.</p>
+              </section>
 
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-800">Role gap summary</h3>
-                  <ul className="mt-2 grid gap-2 text-sm text-slate-700">
+              <section className="passport-summary-grid">
+                <div className="passport-alignment">
+                  <div className="passport-section-heading"><div><p className="passport-section-kicker">ROLE ALIGNMENT</p><h3>Where this evidence fits</h3></div></div>
+                  <div className="passport-fit-list">
                     {recruiterRoleMatchSummary.items.map((item) => (
-                      <li key={item.requiredSkill} className="rounded-lg border border-slate-200 p-2">
-                        <p className="font-medium">{item.requiredSkill}</p>
-                        <p className="text-xs">
-                          {item.matchStatus}. Next: {item.nextEvidence}
-                        </p>
-                      </li>
+                      <div className={`passport-fit-item ${item.matchStatus === "Supported match" ? "is-supported" : item.matchStatus === "Gap" ? "is-gap" : "is-partial"}`} key={item.requiredSkill}>
+                        <span aria-hidden="true">{item.matchStatus === "Supported match" ? "✓" : item.matchStatus === "Gap" ? "–" : "~"}</span>
+                        <div><strong>{item.requiredSkill}</strong><small>{item.matchStatus === "Supported match" ? "Supported by shared evidence" : item.matchStatus === "Gap" ? "No shared evidence yet" : "Signal needs stronger evidence"}</small></div>
+                      </div>
                     ))}
+                  </div>
+                  <p className="passport-score-note">{recruiterRoleMatchSummary.formula}</p>
+                </div>
+                <div className="passport-sources">
+                  <div className="passport-section-heading"><div><p className="passport-section-kicker">EVIDENCE INCLUDED</p><h3>Reviewed source material</h3></div></div>
+                  <ul>
+                    {recruiterProjects.map((project) => <li key={project.id}><span>{project.evidenceType ?? "Project evidence"}</span><strong>{project.projectName}</strong><small>{formatEvidenceDate(project.submittedAt)} · candidate reviewed</small></li>)}
+                    {!recruiterProjects.length && <li className="passport-empty-source">No evidence is included in this share view.</li>}
                   </ul>
                 </div>
-              </div>
+              </section>
+
+              {passportRoleNeeds.length > 0 && <section className="passport-next-proof">
+                <div><p className="passport-section-kicker">NEXT PROOF TO ADD</p><h3>Evidence that would strengthen this role match</h3></div>
+                <div>{passportRoleNeeds.slice(0, 2).map((item) => <p key={item.requiredSkill}><strong>{item.requiredSkill}</strong><span>{item.nextEvidence}</span></p>)}</div>
+              </section>}
+
+              <footer className="passport-footer">
+                <p><strong>How to read this passport</strong> · It records candidate-submitted evidence, candidate review, and transparent demo analysis signals. It is not an independent credential.</p>
+                <p>{recruiterProjects.length} reviewed evidence source{recruiterProjects.length === 1 ? "" : "s"} · candidate-controlled visibility</p>
+              </footer>
             </article>
 
-            <div className="flex flex-wrap gap-3 no-print">
-              <button
-                type="button"
-                onClick={copyPassport}
-                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-              >
-                Copy Passport
-              </button>
-              <button
-                type="button"
-                onClick={printPassport}
-                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Print / Save as PDF
-              </button>
+            <div className="passport-actions no-print">
+              <p>The share view includes only candidate-reviewed, recruiter-visible material.</p>
+              <div><button type="button" onClick={copyPassport} className="primary-button">Copy passport text <span>↗</span></button><button type="button" onClick={printPassport} className="passport-print-button">Print / Save as PDF</button></div>
             </div>
           </section>
         )}
